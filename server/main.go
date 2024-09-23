@@ -12,6 +12,97 @@ import (
 	"time"
 )
 
+// general packet format:
+// | 1 byte: flags | packet specific format |
+//
+//	flags:
+//		0x01 -	player state update
+//		0x02 -	join
+//		0x03 -	join ack
+//		0x04 -	leave
+//		0x05 -	leave ack
+//
+//
+//	join packet:
+//		client:
+//			initial:	| flag: 0x02 |
+//			ack:		| flag: 0x02 | 8 byte: session ID |
+//		server:
+//					| flag: 0x02 | 8 byte: session ID |
+//
+//	leave packet:
+//		client:
+//			initial:	| flag: 0x03 | 8 byte: session ID |
+//		server:
+//			ack:		| flag: 0x03 |
+//
+//	player state packet:
+//		client:
+//			send:		| flag: 0x01 | 8 byte: session ID | 1 byte: direction | timestamp |
+//
+//	initial game state send:
+//		server:
+//			send:		| flag: 0x01 | timestamp | 1 byte: grid width | 1 byte: grid height | 1 byte: num players | 1 byte * num players: direction | 1 byte * num players: num pos |
+//					| num players * num pos * 2 bytes: x pos byte and y pos byte |
+//		client:
+//			ack:
+
+type Flag uint8
+
+const (
+	PlayerStateUpdate Flag = 0x01 + iota
+	InitialGameState
+	InitialGameStateAck
+	Join
+	JoinAck
+	Leave
+	LeaveAck
+)
+
+type Packet struct {
+	flag Flag
+}
+
+type JoinPacketClientServer struct {
+	Packet    Packet
+	SessionID uint64
+}
+
+type JoinPacketClientAck struct {
+	Packet Packet
+}
+
+type LeavePacketClient struct {
+	Packet    Packet
+	SessionID uint64
+}
+
+type LeavePacketServerAck struct {
+	Packet Packet
+}
+
+type PlayerStatePacketClient struct {
+	Packet    Packet
+	SessionID uint64
+	Direction uint8
+	Timestamp uint64
+}
+
+type PlayerPacket struct {
+	Direction uint8
+	NumPos    uint8
+	Points    []Point
+}
+
+type GameStatePacketServer struct {
+	Packet     Packet
+	Timestamp  uint64
+	GridWidth  uint8
+	GridHeight uint8
+	NumPlayers uint8
+	Players    []PlayerPacket
+}
+
 const (
 	gridWidth     = 32
 	gridHeight    = 16
@@ -30,8 +121,8 @@ const (
 )
 
 type Point struct {
-	X int
-	Y int
+	X uint8
+	Y uint8
 }
 
 type Player struct {

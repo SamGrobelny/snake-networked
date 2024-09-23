@@ -32,7 +32,11 @@ class LinkedList:
 
 
 class Snake:
-    # TODO: create the very pogger snake class
+    def __init__(self):
+        pass
+
+    def increment(self):
+        pass
 
 
 class Direction(Enum):
