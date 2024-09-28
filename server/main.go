@@ -58,58 +58,11 @@ const (
 	serverAddress = ":1337"
 )
 
-const (
-	None = iota
-	Up
-	Down
-	Left
-	Right
-)
-
-type Point struct {
-	X uint8
-	Y uint8
-}
-
-type Player struct {
-	Address    *net.UDPAddr
-	Id         uint32
-	Direction  int
-	Snake      []Point
-	Lost       bool
-	LastActive time.Time
-}
-
-type CustomPacket struct {
-	PlayerId  uint32 // 4 bytes
-	Timestamp int64  // 8 bytes
-	Data      []byte // rest of stuff
-}
-
 // NOTE: I think this can be made better to try and prevent so many looks through the player arrays which takes a lot of time
 // NOTE: Maybe make a matrix of the board that gets updated to just the matrix points around the player needs to be checked rather than every single player
 // NOTE: If the players are scaled up, the would run very poorly (i think...)
-type GameState struct {
-	Players      map[uint32]*Player
-	Mutex        sync.Mutex
-	NextPlayerID uint32
-	PlayerQueue  []*net.UDPAddr
-}
-
-func handleErr(err error) {
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-}
 
 var gameState = GameState{Players: make(map[uint32]*Player)}
-
-func resetGameState() {
-	gameState.Players = make(map[uint32]*Player)
-	gameState.PlayerQueue = []*net.UDPAddr{}
-	gameState.NextPlayerID = 0
-}
 
 func encodePacket(playerId uint32, data []byte) []byte {
 	var buffer bytes.Buffer
@@ -119,6 +72,7 @@ func encodePacket(playerId uint32, data []byte) []byte {
 	return buffer.Bytes()
 }
 
+// TODO: change
 func decodePacket(data []byte) CustomPacket {
 	var packet CustomPacket
 	buffer := bytes.NewReader(data)
@@ -128,7 +82,7 @@ func decodePacket(data []byte) CustomPacket {
 	return packet
 }
 
-func sendGameState(player *Player) {
+func sendGameState(player *game.Player) {
 	conn, err := net.DialUDP("udp", nil, player.Address)
 	if err != nil {
 		log.Println("error dialing udp:", err)
@@ -151,41 +105,6 @@ func sendGameState(player *Player) {
 
 	packet := encodePacket(player.Id, buffer.Bytes())
 	conn.Write(packet)
-}
-
-func moveSnake(player *Player) {
-	head := player.Snake[0]
-	newHead := head
-
-	switch player.Direction {
-	case Up:
-		newHead.Y = (newHead.Y - 1 + gridHeight) % gridHeight //wrap around if beyond bound
-	case Down:
-		newHead.Y = (newHead.Y + 1) % gridHeight
-	case Left:
-		newHead.X = (newHead.X - 1 + gridWidth) % gridWidth
-	case Right:
-		newHead.X = (newHead.X + 1) % gridWidth
-	}
-
-	player.Snake = append([]Point{newHead}, player.Snake...) //append new head in front
-	player.Snake = player.Snake[:len(player.Snake)-1]        //remove last element
-}
-
-// NOTE: this can also be changed in the future to basically just move all the snakes and only check collision one per tick.
-// NOTE: The logic here would be if a head ran into a body, whoevers head it is would lose.
-// for now i just want the player to get deleted but in the future I want a add length to the person who "kills" them
-func checkCollision(player *Player) {
-	head := player.Snake[0]
-
-	for _, enemy := range gameState.Players {
-		for _, point := range enemy.Snake {
-			if head == point {
-				player.Lost = true
-				return
-			}
-		}
-	}
 }
 
 func gameLoop() {
@@ -252,6 +171,13 @@ func handlePacket(conn *net.UDPConn, addr *net.UDPAddr, data []byte) {
 			Direction:  None,
 			Snake:      []Point{position},
 		}
+	}
+}
+
+func handleErr(err error) {
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
 
